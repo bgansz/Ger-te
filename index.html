@@ -340,6 +340,20 @@
 
 <input type="file" id="importFile" accept="application/json,.json" hidden>
 
+<div class="modal" id="saveModal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-label="Daten sichern">
+    <div class="modal-top">
+      <h3>Daten sichern</h3>
+      <button class="modal-x" id="saveClose" aria-label="Schließen">✕</button>
+    </div>
+    <p class="sub">Wie möchtest du die Sicherung ablegen?</p>
+    <div class="rep-actions">
+      <button class="btn-add" id="saveToComputer">💾 Auf dem Computer speichern</button>
+      <button class="btn-show" id="saveViaOutlook">✉️ Per Outlook verschicken</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal" id="betriebModal" hidden>
   <div class="modal-card" role="dialog" aria-modal="true" aria-label="Betrieb hinzufügen">
     <div class="modal-top">
@@ -1102,22 +1116,30 @@ async function exportData(){
   };
   const json = JSON.stringify(backup, null, 2);
   const dateiname = `geraeteverwaltung-backup-${todayISO()}.json`;
+  const istHandy = /iphone|ipod|android/i.test(navigator.userAgent || "");
 
-  // 1) Bevorzugt: nativer Sichern-/Teilen-Dialog (iPhone: "In Dateien sichern" -> lokal auf dem Gerät)
-  try {
-    if (typeof File !== "undefined" && navigator.canShare){
-      const datei = new File([json], dateiname, { type: "application/json" });
-      if (navigator.canShare({ files: [datei] })){
-        await navigator.share({ files: [datei], title: "Geräteverwaltung – Sicherung" });
-        return; // erfolgreich über den Sichern-Dialog gespeichert
+  if (istHandy){
+    // iPhone/Handy: direkter Sichern-/Teilen-Dialog ("In Dateien sichern" / Mail)
+    try {
+      if (typeof File !== "undefined" && navigator.canShare){
+        const datei = new File([json], dateiname, { type: "application/json" });
+        if (navigator.canShare({ files: [datei] })){
+          await navigator.share({ files: [datei], title: "Geräteverwaltung – Sicherung" });
+          return;
+        }
       }
+    } catch (err){
+      if (err && err.name === "AbortError") return;
     }
-  } catch (err){
-    if (err && err.name === "AbortError") return; // Nutzer hat den Dialog abgebrochen
-    // anderer Fehler -> unten klassisch herunterladen
+    downloadBlob(json, dateiname); // Fallback
+    return;
   }
 
-  // 2) Fallback: klassischer Download (z. B. am Mac -> Ordner "Downloads")
+  // Mac/Computer: Auswahl anbieten (auf dem Computer speichern ODER per Outlook verschicken)
+  openSaveChooser(json, dateiname);
+}
+
+function downloadBlob(json, dateiname){
   try {
     const blob = new Blob([json], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -1132,6 +1154,71 @@ async function exportData(){
     alert("Die Daten konnten nicht gesichert werden: " + (err && err.message ? err.message : err));
   }
 }
+
+/* ---------- Fenster: Sichern-Auswahl (Computer / Outlook) ---------- */
+const saveModal = $("#saveModal");
+let _savePayload = null;
+function openSaveChooser(json, dateiname){
+  _savePayload = { json, dateiname };
+  saveModal.hidden = false;
+  document.body.style.overflow = "hidden";
+}
+function closeSaveModal(){
+  saveModal.hidden = true;
+  document.body.style.overflow = "";
+}
+async function trySaveFile(json, dateiname){
+  // Chrome/Edge: nativer "Speichern unter"-Dialog -> startet direkt im Schreibtisch, Ort frei wählbar
+  if (typeof window.showSaveFilePicker === "function"){
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: dateiname,
+        startIn: "desktop",
+        types: [{ description: "Sicherung (JSON)", accept: { "application/json": [".json"] } }],
+      });
+      const w = await handle.createWritable();
+      await w.write(json);
+      await w.close();
+      return "ok";
+    } catch (err){ if (err && err.name === "AbortError") return "abort"; /* sonst unten herunterladen */ }
+  }
+  // Safari/andere: direkter Download (landet im Download-Ordner; Ziel siehe Safari-Einstellungen)
+  downloadBlob(json, dateiname);
+  return "download";
+}
+$("#saveClose").addEventListener("click", closeSaveModal);
+saveModal.addEventListener("click", (e) => { if (e.target === saveModal) closeSaveModal(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !saveModal.hidden) closeSaveModal(); });
+
+$("#saveToComputer").addEventListener("click", async () => {
+  if (!_savePayload) return;
+  const { json, dateiname } = _savePayload;
+  const res = await trySaveFile(json, dateiname);
+  if (res === "abort") return;     // Nutzer hat den Dialog abgebrochen -> Fenster offen lassen
+  closeSaveModal();
+  if (res === "download"){
+    alert(
+      "Die Sicherung wurde in deinen Download-Ordner gespeichert.\n\n" +
+      "Tipp für Safari: Unter „Einstellungen → Allgemein → Speicherort für Dateien“ die Option " +
+      "„Bei jedem Download fragen“ wählen – dann kannst du beim Speichern jedes Mal den Schreibtisch auswählen."
+    );
+  }
+});
+
+$("#saveViaOutlook").addEventListener("click", () => {
+  if (!_savePayload) return;
+  const { json, dateiname } = _savePayload;
+  // Datei speichern (zum Anhängen) und Mail im Standard-Mailprogramm (z. B. Outlook) öffnen.
+  // Hinweis: Browser können aus Sicherheitsgründen keine Datei automatisch an eine Mail anhängen.
+  downloadBlob(json, dateiname);
+  const subject = encodeURIComponent("Geräteverwaltung – Sicherung");
+  const body = encodeURIComponent(
+    "Hallo,\n\nanbei die Sicherung der Geräteverwaltung.\n\n" +
+    "Bitte die soeben gespeicherte Datei \"" + dateiname + "\" aus dem Download-Ordner an diese E-Mail anhängen.\n\nViele Grüße"
+  );
+  closeSaveModal();
+  window.location.href = "mailto:?subject=" + subject + "&body=" + body;
+});
 
 /* ---------- Daten importieren: Wiederherstellen & Ergänzen ---------- */
 let _importMode = null;
