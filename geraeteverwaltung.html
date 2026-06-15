@@ -1,0 +1,1798 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Geräte">
+<title>Geräteverwaltung</title>
+<style>
+  :root{
+    --ink:#1b1e24;
+    --ink-soft:#2b2f37;
+    --surface:#f4f2ed;
+    --card:#ffffff;
+    --accent:#e2722a;
+    --accent-deep:#bf5717;
+    --line:#e4e1da;
+    --line-strong:#cfccc3;
+    --muted:#6c7077;
+    --ok:#2f8f5b;
+    --ok-soft:#e7f3ec;
+    --warn:#b3541e;
+    --warn-soft:#fbeee2;
+    --radius:14px;
+    --radius-lg:20px;
+    --shadow:0 1px 2px rgba(27,30,36,.06), 0 8px 24px rgba(27,30,36,.08);
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:var(--sans);
+    background:var(--surface);
+    color:var(--ink);
+    line-height:1.45;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  .app{max-width:560px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+
+  /* top bar */
+  header.bar{
+    position:sticky;top:0;z-index:20;
+    background:var(--ink);color:#fff;
+    padding:calc(env(safe-area-inset-top,0px) + 14px) 18px 14px;
+    display:flex;align-items:center;gap:12px;
+  }
+  header.bar .back{
+    appearance:none;border:none;background:rgba(255,255,255,.1);color:#fff;
+    width:38px;height:38px;border-radius:11px;font-size:20px;line-height:1;
+    display:flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto;
+  }
+  header.bar .back:active{background:rgba(255,255,255,.2)}
+  header.bar .back[hidden]{display:none}
+  header.bar .titles{flex:1;min-width:0}
+  header.bar .kicker{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:700}
+  header.bar h1{font-size:17px;margin:1px 0 0;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  header.bar .ctx{
+    flex:0 0 auto;font-family:var(--mono);font-size:11px;
+    background:rgba(255,255,255,.12);padding:6px 9px;border-radius:8px;max-width:42%;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  header.bar .ctx[hidden]{display:none}
+
+  main{flex:1;padding:22px 18px calc(env(safe-area-inset-bottom,0px) + 32px)}
+
+  .lead{margin:2px 0 20px}
+  .lead h2{font-size:24px;font-weight:680;letter-spacing:-.01em;margin:0 0 6px}
+  .lead p{margin:0;color:var(--muted);font-size:15px}
+
+  /* big choice buttons */
+  .stack{display:flex;flex-direction:column;gap:12px}
+  .choice{
+    appearance:none;text-align:left;width:100%;cursor:pointer;
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:18px 18px;display:flex;align-items:center;gap:15px;
+    box-shadow:var(--shadow);transition:transform .12s ease,border-color .12s ease;
+    color:inherit;font-family:inherit;
+  }
+  .choice:active{transform:scale(.985)}
+  .choice:hover{border-color:var(--line-strong)}
+  .choice .ic{
+    flex:0 0 auto;width:46px;height:46px;border-radius:12px;
+    display:flex;align-items:center;justify-content:center;font-size:22px;
+    background:var(--surface);border:1px solid var(--line);
+  }
+  .choice .tx{flex:1;min-width:0}
+  .choice .tx b{display:block;font-size:16px;font-weight:620}
+  .choice .tx span{display:block;color:var(--muted);font-size:13px;margin-top:2px}
+  .choice .arrow{color:var(--line-strong);font-size:22px;flex:0 0 auto}
+  .choice .tag{font-family:var(--mono);font-size:11px;color:var(--accent-deep);background:var(--warn-soft);padding:3px 7px;border-radius:6px;flex:0 0 auto}
+
+  /* steps / wizard */
+  .progress{display:flex;gap:6px;margin:0 0 20px}
+  .progress i{height:5px;flex:1;border-radius:99px;background:var(--line);transition:background .2s}
+  .progress i.on{background:var(--accent)}
+  .progress i.done{background:var(--ink)}
+
+  .field{margin:0 0 18px}
+  .field label{display:block;font-size:13px;font-weight:640;margin:0 0 7px;letter-spacing:.01em}
+  .field .hint{color:var(--muted);font-weight:400;font-size:12px}
+  input[type=text]{
+    width:100%;font:inherit;font-size:16px;padding:13px 14px;
+    border:1px solid var(--line-strong);border-radius:12px;background:var(--card);color:var(--ink);
+  }
+  input[type=text]:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(226,114,42,.16)}
+  input[type=text].err{border-color:#c0392b;box-shadow:0 0 0 3px rgba(192,57,43,.14)}
+  .errmsg{color:#c0392b;font-size:12.5px;margin:7px 0 0;display:none}
+  .errmsg.show{display:block}
+
+  /* photo capture */
+  .photo{
+    border:1.5px dashed var(--line-strong);border-radius:var(--radius);
+    background:var(--card);padding:20px;text-align:center;position:relative;overflow:hidden;
+  }
+  .photo.has{border-style:solid;padding:0}
+  .photo.off{opacity:.55}
+  .photo .ph-empty{display:flex;flex-direction:column;align-items:center;gap:8px}
+  .photo .ph-empty .ico{font-size:34px}
+  .photo .ph-empty b{font-size:15px;font-weight:620}
+  .photo .ph-empty span{color:var(--muted);font-size:13px}
+  .photo .ph-actions{display:flex;gap:10px;justify-content:center;margin-top:14px}
+  .photo img.preview{display:block;width:100%;max-height:300px;object-fit:cover}
+  .photo .ph-bar{display:flex;justify-content:space-between;align-items:center;padding:11px 13px;background:var(--surface);border-top:1px solid var(--line)}
+  .photo .ph-bar span{font-size:13px;color:var(--muted)}
+  .btn-mini{
+    appearance:none;border:1px solid var(--line-strong);background:var(--card);color:var(--ink);
+    font:inherit;font-size:13px;font-weight:560;padding:9px 13px;border-radius:10px;cursor:pointer;
+  }
+  .btn-mini:active{background:var(--surface)}
+  .btn-mini.danger{color:#c0392b;border-color:#e9c4be}
+
+  .nophoto{
+    display:flex;align-items:center;gap:11px;margin-top:13px;
+    padding:13px;border:1px solid var(--line);border-radius:12px;background:var(--card);cursor:pointer;
+  }
+  .nophoto input{width:21px;height:21px;accent-color:var(--accent);flex:0 0 auto;margin:0}
+  .nophoto .lbl b{font-size:14px;font-weight:580;display:block}
+  .nophoto .lbl span{font-size:12.5px;color:var(--muted)}
+
+  /* primary buttons */
+  .actions{display:flex;gap:11px;margin-top:26px}
+  .btn{
+    appearance:none;flex:1;font:inherit;font-size:16px;font-weight:620;
+    padding:15px 18px;border-radius:13px;cursor:pointer;border:1px solid transparent;
+    display:flex;align-items:center;justify-content:center;gap:8px;
+  }
+  .btn-primary{background:var(--accent);color:#fff}
+  .btn-primary:active{background:var(--accent-deep)}
+  .btn-primary:disabled{background:var(--line-strong);cursor:not-allowed}
+  .btn-ghost{background:transparent;color:var(--ink);border-color:var(--line-strong);flex:0 0 auto;min-width:96px}
+  .btn-ghost:active{background:var(--card)}
+
+  /* review */
+  .review{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+  .review .row{display:flex;gap:14px;padding:15px 16px;border-bottom:1px solid var(--line)}
+  .review .row:last-child{border-bottom:none}
+  .review .row .k{flex:0 0 96px;color:var(--muted);font-size:13px;padding-top:2px}
+  .review .row .v{flex:1;font-size:15px;font-weight:540;word-break:break-word}
+  .review .thumbs{display:flex;gap:12px}
+  .review .thumbs figure{flex:1;margin:0}
+  .review .thumbs img{width:100%;height:108px;object-fit:cover;border-radius:10px;border:1px solid var(--line)}
+  .review .thumbs .missing{
+    width:100%;height:108px;border-radius:10px;border:1px dashed var(--line-strong);
+    display:flex;align-items:center;justify-content:center;text-align:center;color:var(--warn);
+    font-size:12.5px;background:var(--warn-soft);padding:8px;
+  }
+  .review .thumbs figcaption{font-size:11.5px;color:var(--muted);text-align:center;margin-top:6px}
+
+  /* success */
+  .done-card{text-align:center;padding:30px 20px 8px}
+  .done-card .seal{
+    width:74px;height:74px;border-radius:50%;background:var(--ok-soft);color:var(--ok);
+    display:flex;align-items:center;justify-content:center;font-size:38px;margin:0 auto 16px;
+  }
+  .done-card h2{font-size:22px;margin:0 0 6px}
+  .done-card p{color:var(--muted);margin:0}
+  .done-card .asset{font-family:var(--mono);font-size:13px;margin-top:12px;color:var(--ink)}
+
+  /* list (Bearbeitung) */
+  .listhead{display:flex;align-items:baseline;justify-content:space-between;margin:0 0 14px}
+  .listhead .count{font-family:var(--mono);font-size:13px;color:var(--muted)}
+  .empty{
+    text-align:center;padding:46px 24px;border:1px dashed var(--line-strong);
+    border-radius:var(--radius);background:var(--card);color:var(--muted);
+  }
+  .empty .ico{font-size:38px;display:block;margin-bottom:10px}
+  .empty b{display:block;color:var(--ink);font-size:16px;margin-bottom:4px}
+  .device{
+    display:flex;gap:13px;align-items:center;width:100%;text-align:left;cursor:pointer;
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:12px;margin-bottom:11px;font:inherit;color:inherit;box-shadow:var(--shadow);
+  }
+  .device:active{transform:scale(.99)}
+  .device .pic{flex:0 0 auto;width:58px;height:58px;border-radius:11px;overflow:hidden;background:var(--surface);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:22px}
+  .device .pic img{width:100%;height:100%;object-fit:cover}
+  .device .meta{flex:1;min-width:0}
+  .device .meta b{display:block;font-size:15.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .device .meta .loc{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .device .meta .badges{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+  .badge{font-size:11px;font-weight:600;padding:3px 8px;border-radius:7px}
+  .badge.ok{background:var(--ok-soft);color:var(--ok)}
+  .badge.miss{background:var(--warn-soft);color:var(--warn)}
+  .device .chev{color:var(--line-strong);font-size:20px;flex:0 0 auto}
+
+  .filterbar{position:relative;margin:0 0 16px}
+  .filterbar input{padding-left:40px}
+  .filterbar .mag{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:16px}
+
+  .footnote{margin-top:26px;color:var(--muted);font-size:12px;text-align:center;line-height:1.6}
+  .footnote code{font-family:var(--mono);background:var(--card);padding:2px 5px;border-radius:5px;border:1px solid var(--line)}
+
+  /* Dokument-Upload (Anleitung / Explosionszeichnung) */
+  .docupload{
+    appearance:none;width:100%;display:flex;align-items:center;justify-content:center;gap:9px;
+    padding:17px;border:1.5px dashed var(--line-strong);border-radius:var(--radius);
+    background:var(--card);color:var(--ink);font:inherit;font-size:15px;font-weight:560;cursor:pointer;
+  }
+  .docupload:active{background:var(--surface)}
+  .docbox{border:1px solid var(--line);border-radius:var(--radius);background:var(--card);overflow:hidden;box-shadow:var(--shadow)}
+  .docrow{display:flex;align-items:center;gap:12px;padding:13px 14px}
+  .docrow .docic{flex:0 0 auto;width:44px;height:44px;border-radius:11px;background:var(--surface);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:21px}
+  .docrow .docmeta{flex:1;min-width:0}
+  .docrow .docmeta b{display:block;font-size:14.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .docrow .docmeta span{font-size:12.5px;color:var(--muted)}
+  .docactions{display:flex;gap:7px;padding:0 14px 13px;flex-wrap:wrap}
+
+  /* Foto-Vergrößerung */
+  .lightbox{
+    position:fixed;inset:0;z-index:50;background:rgba(15,17,21,.93);
+    display:flex;align-items:center;justify-content:center;
+    padding:calc(env(safe-area-inset-top,0px) + 56px) 16px calc(env(safe-area-inset-bottom,0px) + 20px);
+    cursor:zoom-out;animation:lbIn .16s ease;
+  }
+  .lightbox[hidden]{display:none}
+  .lightbox figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:12px;max-width:100%;max-height:100%}
+  .lightbox img{max-width:100%;max-height:80vh;object-fit:contain;border-radius:12px;box-shadow:0 24px 70px rgba(0,0,0,.55)}
+  .lightbox figcaption{color:#fff;font-family:var(--mono);font-size:13px;opacity:.85}
+  .lb-close{
+    position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);right:14px;
+    width:44px;height:44px;border-radius:12px;border:none;cursor:pointer;
+    background:rgba(255,255,255,.15);color:#fff;font-size:18px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .lb-close:active{background:rgba(255,255,255,.28)}
+  .preview.zoomable{cursor:zoom-in}
+  @keyframes lbIn{from{opacity:0}to{opacity:1}}
+
+  /* Reparaturen + Eingabefenster */
+  .rep-head{display:flex;align-items:center;justify-content:space-between;margin:0 0 11px}
+  .rep-head b{font-size:15px;font-weight:640}
+  .rep-count{font-family:var(--mono);font-size:12px;color:var(--accent-deep);background:var(--warn-soft);padding:4px 10px;border-radius:99px}
+  .rep-list{display:flex;flex-direction:column;gap:9px;margin:0 0 13px}
+  .rep-item{display:flex;gap:12px;align-items:flex-start;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 13px;box-shadow:var(--shadow)}
+  .rep-item .rep-date{flex:0 0 auto;font-family:var(--mono);font-size:12px;color:var(--muted);padding-top:2px;min-width:78px}
+  .rep-item .rep-desc{flex:1;min-width:0;font-size:14px;white-space:pre-wrap;word-break:break-word}
+  .rep-item .rep-del{flex:0 0 auto;appearance:none;border:none;background:none;color:#c0392b;font-size:15px;cursor:pointer;padding:2px 2px;line-height:1}
+  .rep-empty{color:var(--muted);font-size:13.5px;margin:0 0 13px}
+  .btn-add{
+    appearance:none;width:100%;display:flex;align-items:center;justify-content:center;gap:8px;
+    padding:13px;border:1px solid var(--accent);color:var(--accent-deep);background:var(--warn-soft);
+    border-radius:12px;font:inherit;font-size:15px;font-weight:620;cursor:pointer;
+  }
+  .btn-add:active{background:#f6ddc6}
+  .rep-actions{display:flex;flex-direction:column;gap:10px}
+  .btn-show{
+    appearance:none;width:100%;display:flex;align-items:center;justify-content:center;gap:8px;
+    padding:13px;border:1px solid var(--line-strong);color:var(--ink);background:var(--card);
+    border-radius:12px;font:inherit;font-size:15px;font-weight:580;cursor:pointer;
+  }
+  .btn-show:active{background:var(--surface)}
+
+  .modal-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 4px}
+  .modal-x{appearance:none;border:none;background:var(--surface);color:var(--ink);width:36px;height:36px;border-radius:10px;font-size:16px;cursor:pointer;flex:0 0 auto}
+  .modal-x:active{background:var(--line)}
+  .rep-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .rep-table{width:100%;border-collapse:collapse;font-size:14px}
+  .rep-table th{text-align:left;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:700;padding:9px 10px;border-bottom:2px solid var(--line-strong);white-space:nowrap}
+  .rep-table td{padding:11px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  .rep-table tr:last-child td{border-bottom:none}
+  .rep-table td.col-date{font-family:var(--mono);font-size:12.5px;color:var(--ink);white-space:nowrap}
+  .rep-table td.col-desc{white-space:pre-wrap;word-break:break-word;min-width:160px}
+  .rep-table td.col-act{text-align:right;width:30px}
+  .rep-del-row{appearance:none;border:none;background:none;color:#c0392b;font-size:14px;cursor:pointer;padding:2px}
+  .rep-table-empty{color:var(--muted);font-size:14px;padding:18px 2px}
+  .rep-table td.col-dev{min-width:120px}
+  .rep-table td.col-dev b{display:block;font-weight:600;font-size:13.5px}
+  .rep-table td.col-dev span{display:block;color:var(--muted);font-size:12px;margin-top:1px}
+  .icon-pick{display:flex;flex-wrap:wrap;gap:8px}
+  .icon-opt{appearance:none;border:1px solid var(--line-strong);background:var(--card);font-size:21px;width:48px;height:48px;border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .icon-opt.sel{border-color:var(--accent);box-shadow:0 0 0 3px rgba(226,114,42,.18);background:var(--warn-soft)}
+
+  /* Tabelle "Alle Reparaturen": eine Zeile je Gerät, Reparaturen als Spalten */
+  #allRepBody .rep-matrix{border-collapse:separate;border-spacing:0;font-size:14px}
+  #allRepBody th{text-align:left;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:700;padding:9px 10px;border-bottom:2px solid var(--line-strong);background:var(--card);white-space:nowrap}
+  #allRepBody td{padding:10px 10px;border-bottom:1px solid var(--line);vertical-align:top;background:var(--card)}
+  #allRepBody tr:last-child td{border-bottom:none}
+  #allRepBody .c-betrieb{position:sticky;left:0;z-index:2;width:118px;min-width:118px;max-width:118px;font-weight:640;border-right:1px solid var(--line);word-break:break-word}
+  #allRepBody .c-geraet{position:sticky;left:118px;z-index:2;width:132px;min-width:132px;max-width:132px;font-weight:600;border-right:2px solid var(--line-strong);word-break:break-word}
+  #allRepBody th.c-betrieb,#allRepBody th.c-geraet{z-index:3}
+  #allRepBody .c-rep{min-width:158px;max-width:240px}
+  #allRepBody .c-rep .rd{display:block;font-family:var(--mono);font-size:11.5px;color:var(--muted);margin-bottom:2px}
+  #allRepBody td.c-rep{white-space:pre-wrap;word-break:break-word}
+  #allRepBody .c-empty{color:var(--line-strong);text-align:center}
+
+  .modal{position:fixed;inset:0;z-index:60;background:rgba(15,17,21,.55);display:flex;align-items:flex-end;justify-content:center;animation:lbIn .16s ease}
+  .modal[hidden]{display:none}
+  .modal-card{
+    background:var(--card);width:100%;max-width:560px;border-radius:20px 20px 0 0;
+    padding:22px 18px calc(env(safe-area-inset-bottom,0px) + 20px);
+    box-shadow:0 -12px 44px rgba(0,0,0,.28);max-height:92vh;overflow:auto;
+  }
+  .modal-card h3{margin:0 0 4px;font-size:19px;font-weight:660}
+  .modal-card .sub{margin:0 0 18px;color:var(--muted);font-size:14px}
+  textarea{width:100%;font:inherit;font-size:16px;padding:12px 14px;border:1px solid var(--line-strong);border-radius:12px;background:var(--card);color:var(--ink);resize:vertical;min-height:100px}
+  textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(226,114,42,.16)}
+  input[type=date]{width:100%;font:inherit;font-size:16px;padding:12px 14px;border:1px solid var(--line-strong);border-radius:12px;background:var(--card);color:var(--ink)}
+  input[type=date]:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(226,114,42,.16)}
+  input[type=date].err,textarea.err{border-color:#c0392b;box-shadow:0 0 0 3px rgba(192,57,43,.14)}
+  @media (min-width:600px){ .modal{align-items:center} .modal-card{border-radius:20px} }
+
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}.lightbox{animation:none}.modal{animation:none}}
+  @media (min-width:600px){ main{padding-top:30px} }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="bar">
+    <button class="back" id="backBtn" aria-label="Zurück" hidden>‹</button>
+    <div class="titles">
+      <div class="kicker">Geräteverwaltung</div>
+      <h1 id="barTitle">Betrieb wählen</h1>
+    </div>
+    <div class="ctx" id="barCtx" hidden></div>
+  </header>
+  <main id="main"></main>
+</div>
+
+<input type="file" id="importFile" accept="application/json,.json" hidden>
+
+<div class="modal" id="betriebModal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-label="Betrieb hinzufügen">
+    <div class="modal-top">
+      <h3>Neuen Betrieb hinzufügen</h3>
+      <button class="modal-x" id="betriebClose" aria-label="Schließen">✕</button>
+    </div>
+    <p class="sub">Name und optional eine kurze Beschreibung des Standorts.</p>
+    <div class="field">
+      <label for="betrName">Name</label>
+      <input type="text" id="betrName" autocomplete="off" placeholder="z. B. Eatalio Essen">
+      <p class="errmsg" id="eBetrName">Bitte einen Namen eingeben.</p>
+      <p class="errmsg" id="eBetrDup">Ein Betrieb mit diesem Namen existiert bereits.</p>
+    </div>
+    <div class="field">
+      <label for="betrBeschr">Beschreibung <span class="hint">— optional</span></label>
+      <input type="text" id="betrBeschr" autocomplete="off" placeholder="z. B. Restaurant, Essen">
+    </div>
+    <div class="field">
+      <label>Symbol</label>
+      <div class="icon-pick" id="iconPick">
+        <button type="button" class="icon-opt" data-ic="🏢">🏢</button>
+        <button type="button" class="icon-opt" data-ic="🍝">🍝</button>
+        <button type="button" class="icon-opt" data-ic="🏭">🏭</button>
+        <button type="button" class="icon-opt" data-ic="🍷">🍷</button>
+        <button type="button" class="icon-opt" data-ic="🍕">🍕</button>
+        <button type="button" class="icon-opt" data-ic="☕">☕</button>
+        <button type="button" class="icon-opt" data-ic="🍔">🍔</button>
+        <button type="button" class="icon-opt" data-ic="🛒">🛒</button>
+        <button type="button" class="icon-opt" data-ic="🔧">🔧</button>
+        <button type="button" class="icon-opt" data-ic="🏪">🏪</button>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn btn-ghost" id="betrCancel">Abbrechen</button>
+      <button class="btn btn-primary" id="betrSave">Betrieb hinzufügen</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="allRepModal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-label="Alle Reparaturen">
+    <div class="modal-top">
+      <h3>Alle Reparaturen</h3>
+      <button class="modal-x" id="allRepClose" aria-label="Schließen">✕</button>
+    </div>
+    <p class="sub" id="allRepSub"></p>
+    <div id="allRepBody"></div>
+  </div>
+</div>
+
+<div class="modal" id="repairModal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-label="Reparatur erfassen">
+    <h3>Reparatur erfassen</h3>
+    <p class="sub">Datum und Beschreibung der durchgeführten Reparatur.</p>
+    <div class="field">
+      <label for="repDatum">Datum</label>
+      <input type="date" id="repDatum">
+      <p class="errmsg" id="eRepDatum">Bitte ein Datum wählen.</p>
+    </div>
+    <div class="field">
+      <label for="repDesc">Beschreibung <span class="hint">— was wurde gemacht?</span></label>
+      <textarea id="repDesc" placeholder="z. B. Türdichtung getauscht, Thermostat erneuert …"></textarea>
+      <p class="errmsg" id="eRepDesc">Bitte eine Beschreibung eingeben.</p>
+    </div>
+    <div class="actions">
+      <button class="btn btn-ghost" id="repCancel">Abbrechen</button>
+      <button class="btn btn-primary" id="repSave">Reparatur speichern</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="repTableModal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-label="Reparaturen">
+    <div class="modal-top">
+      <h3>Reparaturen</h3>
+      <button class="modal-x" id="repTableClose" aria-label="Schließen">✕</button>
+    </div>
+    <p class="sub" id="repTableSub"></p>
+    <div id="repTableBody"></div>
+  </div>
+</div>
+
+<div class="lightbox" id="lightbox" hidden>
+  <button class="lb-close" id="lbClose" aria-label="Schließen">✕</button>
+  <figure>
+    <img id="lbImg" src="" alt="Vergrößertes Foto">
+    <figcaption id="lbCap"></figcaption>
+  </figure>
+</div>
+
+<script>
+"use strict";
+
+/* ---------- Datenbank (IndexedDB) ---------- */
+const DB_NAME = "geraeteverwaltung";
+const DB_VERSION = 2;
+const STORE = "geraete";
+const STORE_BETRIEB = "betriebe";
+let _db = null;
+let _dbPromise = null;
+
+function openDB(){
+  if (_db) return Promise.resolve(_db);
+  if (_dbPromise) return _dbPromise;
+  _dbPromise = new Promise((resolve, reject) => {
+    if (typeof indexedDB === "undefined" || !indexedDB){
+      reject(new Error("IndexedDB ist hier nicht verfügbar.")); return;
+    }
+    let settled = false;
+    const finish = (fn, arg) => { if (!settled){ settled = true; fn(arg); } };
+    let req;
+    try { req = indexedDB.open(DB_NAME, DB_VERSION); }
+    catch (err){ reject(err); return; }
+    const timer = setTimeout(() => finish(reject, new Error("Datenbank antwortet nicht.")), 3000);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(STORE)) {
+        const store = db.createObjectStore(STORE, { keyPath: "id", autoIncrement: true });
+        store.createIndex("betrieb", "betrieb", { unique: false });
+      }
+      if (!db.objectStoreNames.contains(STORE_BETRIEB)) {
+        db.createObjectStore(STORE_BETRIEB, { keyPath: "name" });
+      }
+    };
+    req.onsuccess = (e) => { clearTimeout(timer); _db = e.target.result; finish(resolve, _db); };
+    req.onerror = (e) => { clearTimeout(timer); finish(reject, e.target.error || new Error("Datenbankfehler")); };
+    req.onblocked = () => { clearTimeout(timer); finish(reject, new Error("Datenbank ist blockiert.")); };
+  });
+  _dbPromise.catch(() => { _dbPromise = null; }); // bei Fehler späteren erneuten Versuch erlauben
+  return _dbPromise;
+}
+
+async function dbAdd(record){
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, "readwrite");
+    const r = tx.objectStore(STORE).add(record);
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = (e) => reject(e.target.error);
+  });
+}
+async function dbPut(record){
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, "readwrite");
+    const r = tx.objectStore(STORE).put(record);
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = (e) => reject(e.target.error);
+  });
+}
+async function dbGet(id){
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, "readonly");
+    const r = tx.objectStore(STORE).get(id);
+    r.onsuccess = () => resolve(r.result || null);
+    r.onerror = (e) => reject(e.target.error);
+  });
+}
+async function dbDelete(id){
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, "readwrite");
+    const r = tx.objectStore(STORE).delete(id);
+    r.onsuccess = () => resolve();
+    r.onerror = (e) => reject(e.target.error);
+  });
+}
+async function dbByBetrieb(betrieb){
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, "readonly");
+    const idx = tx.objectStore(STORE).index("betrieb");
+    const out = [];
+    idx.openCursor(IDBKeyRange.only(betrieb)).onsuccess = (e) => {
+      const cur = e.target.result;
+      if (cur){ out.push(cur.value); cur.continue(); }
+      else resolve(out.sort((a,b) => (b.erstelltAm||"").localeCompare(a.erstelltAm||"")));
+    };
+    tx.onerror = (e) => reject(e.target.error);
+  });
+}
+async function dbAllGeraete(){
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, "readonly");
+    const out = [];
+    tx.objectStore(STORE).openCursor().onsuccess = (e) => {
+      const cur = e.target.result;
+      if (cur){ out.push(cur.value); cur.continue(); }
+      else resolve(out);
+    };
+    tx.onerror = (e) => reject(e.target.error);
+  });
+}
+async function dbAddBetrieb(obj){
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_BETRIEB, "readwrite");
+    const r = tx.objectStore(STORE_BETRIEB).add(obj);
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = (e) => reject(e.target.error);
+  });
+}
+async function dbAllBetriebe(){
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_BETRIEB, "readonly");
+    const out = [];
+    tx.objectStore(STORE_BETRIEB).openCursor().onsuccess = (e) => {
+      const cur = e.target.result;
+      if (cur){ out.push(cur.value); cur.continue(); }
+      else resolve(out.sort((a,b) => (a.erstelltAm||"").localeCompare(b.erstelltAm||"")));
+    };
+    tx.onerror = (e) => reject(e.target.error);
+  });
+}
+async function dbPutBetrieb(obj){
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_BETRIEB, "readwrite");
+    const r = tx.objectStore(STORE_BETRIEB).put(obj);
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = (e) => reject(e.target.error);
+  });
+}
+async function dbClear(storeName){
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, "readwrite");
+    const r = tx.objectStore(storeName).clear();
+    r.onsuccess = () => resolve();
+    r.onerror = (e) => reject(e.target.error);
+  });
+}
+
+/* ---------- Bild herunterskalieren ---------- */
+function downscaleImage(file, maxDim = 1280, quality = 0.82){
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      let { width, height } = img;
+      if (width > maxDim || height > maxDim){
+        const s = Math.min(maxDim / width, maxDim / height);
+        width = Math.round(width * s);
+        height = Math.round(height * s);
+      }
+      const cv = document.createElement("canvas");
+      cv.width = width; cv.height = height;
+      cv.getContext("2d").drawImage(img, 0, 0, width, height);
+      URL.revokeObjectURL(url);
+      try { resolve(cv.toDataURL("image/jpeg", quality)); }
+      catch (err) { reject(err); }
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Bild konnte nicht gelesen werden.")); };
+    img.src = url;
+  });
+}
+
+/* ---------- Stammdaten ---------- */
+const BETRIEBE = [
+  { name: "Eatalio Dortmund", marke: "Eatalio",  ort: "Dortmund", icon: "🍝" },
+  { name: "Eatalio Moers",    marke: "Eatalio",  ort: "Moers",    icon: "🍝" },
+  { name: "Factory Dorsten",  marke: "Factory",  ort: "Dorsten",  icon: "🏭" },
+  { name: "Factory Bottrop",  marke: "Factory",  ort: "Bottrop",  icon: "🏭" },
+  { name: "Dali Dorsten",     marke: "Dali",     ort: "Dorsten",  icon: "🍷" },
+];
+
+/* ---------- App-Status ---------- */
+const app = {
+  screen: "betrieb",   // betrieb | modus | erfassen | erfolg | liste | detail
+  betrieb: null,
+  step: 0,             // Schritt innerhalb der Erfassung (0..3)
+  entwurf: null,       // aktuelles Erfassungsobjekt
+  letzteAsset: null,   // für Erfolgsmeldung
+  detailId: null,
+  suche: "",
+};
+
+function leererEntwurf(){
+  return {
+    name: "", ort: "",
+    fotoGeraet: null, fotoGeraetFehlt: false,
+    fotoTypenschild: null, fotoTypenschildFehlt: false,
+  };
+}
+
+/* ---------- Hilfen ---------- */
+const $ = (sel, root = document) => root.querySelector(sel);
+const main = $("#main");
+const backBtn = $("#backBtn");
+const barTitle = $("#barTitle");
+const barCtx = $("#barCtx");
+
+/* ---------- Foto-Vergrößerung (Lightbox) ---------- */
+const lightbox = $("#lightbox");
+const lbImg = $("#lbImg");
+const lbCap = $("#lbCap");
+function openLightbox(src, caption){
+  if (!src) return;
+  lbImg.src = src;
+  lbCap.textContent = caption || "";
+  lightbox.hidden = false;
+  document.body.style.overflow = "hidden";
+}
+function closeLightbox(){
+  lightbox.hidden = true;
+  lbImg.removeAttribute("src");
+  document.body.style.overflow = "";
+}
+$("#lbClose").addEventListener("click", (e) => { e.stopPropagation(); closeLightbox(); });
+lightbox.addEventListener("click", closeLightbox);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !lightbox.hidden) closeLightbox(); });
+
+/* ---------- Dokumente (Anleitung / Explosionszeichnung) ---------- */
+function readFileAsDataURL(file){
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = () => reject(new Error("Datei konnte nicht gelesen werden."));
+    r.readAsDataURL(file);
+  });
+}
+function dataUrlToBlob(dataUrl){
+  const i = dataUrl.indexOf(",");
+  const head = dataUrl.slice(0, i);
+  const b64 = dataUrl.slice(i + 1);
+  const mime = (head.match(/data:([^;]+)/) || [])[1] || "application/octet-stream";
+  const bin = atob(b64);
+  const arr = new Uint8Array(bin.length);
+  for (let k = 0; k < bin.length; k++) arr[k] = bin.charCodeAt(k);
+  return new Blob([arr], { type: mime });
+}
+function isImage(doc){ return !!(doc && doc.type && doc.type.indexOf("image/") === 0); }
+function openDocument(doc){
+  if (!doc || !doc.data) return;
+  if (isImage(doc)){ openLightbox(doc.data, doc.name || "Dokument"); return; }
+  try {
+    const url = URL.createObjectURL(dataUrlToBlob(doc.data));
+    const w = window.open(url, "_blank");
+    if (!w){
+      const a = document.createElement("a");
+      a.href = url; a.download = doc.name || "dokument";
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (err) {
+    alert("Das Dokument konnte nicht geöffnet werden.");
+  }
+}
+
+/* ---------- Reparaturen (Eingabefenster + Speicherung) ---------- */
+function todayISO(){
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+}
+function fmtRepDate(iso){
+  if (!iso) return "";
+  const p = String(iso).split("-");
+  return (p.length === 3) ? `${p[2]}.${p[1]}.${p[0]}` : String(iso);
+}
+
+// Reparaturen sofort dauerhaft speichern, ohne andere (noch nicht gespeicherte) Bearbeitungen zu berühren
+async function persistReparaturen(id, reparaturen){
+  const rec = await dbGet(id);
+  if (!rec) throw new Error("Gerät nicht gefunden.");
+  rec.reparaturen = reparaturen.slice();
+  rec.geaendertAm = new Date().toISOString();
+  await dbPut(rec);
+}
+
+const repairModal = $("#repairModal");
+function openRepairModal(){
+  $("#repDatum").value = todayISO();
+  $("#repDesc").value = "";
+  ["repDatum","repDesc"].forEach(i => $("#"+i).classList.remove("err"));
+  ["eRepDatum","eRepDesc"].forEach(i => $("#"+i).classList.remove("show"));
+  repairModal.hidden = false;
+  document.body.style.overflow = "hidden";
+  setTimeout(() => { try { $("#repDesc").focus(); } catch(e){} }, 60);
+}
+function closeRepairModal(){
+  repairModal.hidden = true;
+  document.body.style.overflow = "";
+}
+async function saveRepair(){
+  const datum = $("#repDatum").value;
+  const beschreibung = $("#repDesc").value.trim();
+  $("#repDatum").classList.toggle("err", !datum);   $("#eRepDatum").classList.toggle("show", !datum);
+  $("#repDesc").classList.toggle("err", !beschreibung); $("#eRepDesc").classList.toggle("show", !beschreibung);
+  if (!datum || !beschreibung) return;
+
+  const d = app.entwurf;
+  if (!d) return;
+  if (!Array.isArray(d.reparaturen)) d.reparaturen = [];
+  const eintrag = {
+    id: Date.now() + "-" + Math.random().toString(36).slice(2, 7),
+    datum, beschreibung,
+    erstelltAm: new Date().toISOString(),
+  };
+  d.reparaturen.push(eintrag);
+  try {
+    await persistReparaturen(app.detailId, d.reparaturen);
+  } catch (err){
+    d.reparaturen.pop();
+    alert("Die Reparatur konnte nicht gespeichert werden: " + (err && err.message ? err.message : err));
+    return;
+  }
+  closeRepairModal();
+  renderReparaturen(app.detailId);
+}
+$("#repCancel").addEventListener("click", closeRepairModal);
+$("#repSave").addEventListener("click", saveRepair);
+repairModal.addEventListener("click", (e) => { if (e.target === repairModal) closeRepairModal(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !repairModal.hidden) closeRepairModal(); });
+
+function repsSorted(){
+  const d = app.entwurf;
+  const reps = (d && Array.isArray(d.reparaturen)) ? d.reparaturen.slice() : [];
+  reps.sort((a,b) =>
+    (b.datum||"").localeCompare(a.datum||"") ||
+    (b.erstelltAm||"").localeCompare(a.erstelltAm||""));
+  return reps;
+}
+
+function renderReparaturen(id){
+  const sec = $("#repairSection");
+  if (!sec) return;
+  const reps = repsSorted();
+  sec.innerHTML = `
+    <div class="rep-head">
+      <b>Reparaturen</b>
+      <span class="rep-count">${reps.length} ${reps.length === 1 ? "Eintrag" : "Einträge"}</span>
+    </div>
+    <div class="rep-actions">
+      <button class="btn-add" id="repAdd">➕ Reparatur erfassen</button>
+      <button class="btn-show" id="repShow">📋 Reparaturen anzeigen</button>
+    </div>`;
+  $("#repAdd").addEventListener("click", openRepairModal);
+  $("#repShow").addEventListener("click", () => openRepTable(id));
+}
+
+/* ---------- Reparaturen als Tabelle anzeigen ---------- */
+const repTableModal = $("#repTableModal");
+let _repTableId = null;
+
+function openRepTable(id){
+  _repTableId = id;
+  fillRepTable(id);
+  repTableModal.hidden = false;
+  document.body.style.overflow = "hidden";
+}
+function closeRepTable(){
+  repTableModal.hidden = true;
+  document.body.style.overflow = "";
+}
+function fillRepTable(id){
+  const reps = repsSorted();
+  const sub = $("#repTableSub");
+  const body = $("#repTableBody");
+  sub.textContent = `${reps.length} ${reps.length === 1 ? "Reparatur" : "Reparaturen"} insgesamt`;
+  if (!reps.length){
+    body.innerHTML = `<p class="rep-table-empty">Für dieses Gerät wurde noch keine Reparatur erfasst.</p>`;
+    return;
+  }
+  body.innerHTML = `
+    <div class="rep-table-wrap">
+      <table class="rep-table">
+        <thead><tr><th>Datum</th><th>Durchgeführte Reparatur</th><th></th></tr></thead>
+        <tbody>
+          ${reps.map(r => `
+            <tr>
+              <td class="col-date">${esc(fmtRepDate(r.datum))}</td>
+              <td class="col-desc">${esc(r.beschreibung)}</td>
+              <td class="col-act"><button class="rep-del-row" data-id="${esc(r.id)}" aria-label="Eintrag löschen">🗑</button></td>
+            </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>`;
+  body.querySelectorAll(".rep-del-row").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      if (!confirm("Diesen Reparatureintrag wirklich löschen?")) return;
+      const rid = btn.dataset.id;
+      const d = app.entwurf;
+      if (!d || !Array.isArray(d.reparaturen)) return;
+      d.reparaturen = d.reparaturen.filter(x => String(x.id) !== String(rid));
+      try { await persistReparaturen(id, d.reparaturen); }
+      catch (err){ alert("Löschen fehlgeschlagen: " + (err && err.message ? err.message : err)); }
+      renderReparaturen(id);
+      fillRepTable(id);
+    });
+  });
+}
+$("#repTableClose").addEventListener("click", closeRepTable);
+repTableModal.addEventListener("click", (e) => { if (e.target === repTableModal) closeRepTable(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !repTableModal.hidden) closeRepTable(); });
+
+function esc(s){
+  return String(s == null ? "" : s)
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+}
+function assetId(id){ return "GER-" + String(id).padStart(4, "0"); }
+function fmtDatum(iso){
+  if (!iso) return "";
+  const d = new Date(iso);
+  return d.toLocaleDateString("de-DE", { day:"2-digit", month:"2-digit", year:"numeric" })
+       + ", " + d.toLocaleTimeString("de-DE", { hour:"2-digit", minute:"2-digit" });
+}
+
+/* ---------- Navigation ---------- */
+function go(screen){ app.screen = screen; render(); window.scrollTo(0,0); }
+
+function back(){
+  switch (app.screen){
+    case "modus":   go("betrieb"); break;
+    case "erfassen":
+      if (app.step > 0){ app.step--; render(); window.scrollTo(0,0); }
+      else go("modus");
+      break;
+    case "liste":   go("modus"); break;
+    case "detail":  go("liste"); break;
+    case "erfolg":  go("modus"); break;
+    default:        go("betrieb");
+  }
+}
+backBtn.addEventListener("click", back);
+
+/* ---------- Kopfzeile ---------- */
+function updateBar(){
+  const titles = {
+    betrieb: "Betrieb wählen",
+    modus:   "Was möchtest du tun?",
+    erfassen:"Gerät erfassen",
+    erfolg:  "Gespeichert",
+    liste:   "Geräte bearbeiten",
+    detail:  "Gerät bearbeiten",
+  };
+  barTitle.textContent = titles[app.screen] || "Geräteverwaltung";
+  backBtn.hidden = (app.screen === "betrieb");
+  if (app.betrieb && app.screen !== "betrieb"){
+    barCtx.hidden = false; barCtx.textContent = app.betrieb;
+  } else {
+    barCtx.hidden = true;
+  }
+}
+
+/* ---------- Render: Hauptschalter ---------- */
+function render(){
+  updateBar();
+  switch (app.screen){
+    case "betrieb":  renderBetrieb(); break;
+    case "modus":    renderModus(); break;
+    case "erfassen": renderErfassen(); break;
+    case "erfolg":   renderErfolg(); break;
+    case "liste":    renderListe(); break;
+    case "detail":   renderDetail(); break;
+  }
+}
+
+/* ---------- Betriebe: eingebaut + selbst angelegt ---------- */
+async function getAllBetriebe(){
+  let custom = [];
+  try { custom = await dbAllBetriebe(); } catch (e){ custom = []; }
+  const builtin = BETRIEBE.map(b => Object.assign({ custom: false }, b));
+  const cust = custom.map(b => Object.assign({ custom: true }, b));
+  return builtin.concat(cust);
+}
+
+/* ---------- Screen: Betrieb ---------- */
+function paintBetrieb(betriebe){
+  main.innerHTML = `
+    <div class="lead">
+      <h2>Standort auswählen</h2>
+      <p>Für welchen Betrieb möchtest du Geräte verwalten?</p>
+    </div>
+    <div class="stack">
+      ${betriebe.map(b => {
+        const sub = b.custom ? (b.beschreibung || "Eigener Betrieb") : `${b.marke} · ${b.ort}`;
+        return `
+        <button class="choice" data-name="${esc(b.name)}">
+          <span class="ic">${b.icon || "🏢"}</span>
+          <span class="tx"><b>${esc(b.name)}</b><span>${esc(sub)}</span></span>
+          <span class="arrow">›</span>
+        </button>`;
+      }).join("")}
+    </div>
+    <div class="rep-actions" style="margin-top:18px">
+      <button class="btn-add" id="addBetrieb">➕ Neuen Betrieb hinzufügen</button>
+      <button class="btn-show" id="allReps">📋 Alle Reparaturen anzeigen</button>
+      <button class="btn-show" id="exportData">⬇️ Alle Daten herunterladen</button>
+      <button class="btn-show" id="restoreData">⬆️ Daten wiederherstellen</button>
+      <button class="btn-show" id="mergeData">🔄 Daten ergänzen</button>
+    </div>`;
+  main.querySelectorAll(".choice[data-name]").forEach(el => {
+    el.addEventListener("click", () => { app.betrieb = el.dataset.name; go("modus"); });
+  });
+  $("#addBetrieb").addEventListener("click", openBetriebModal);
+  $("#allReps").addEventListener("click", openAllRepTable);
+  $("#exportData").addEventListener("click", exportData);
+  $("#restoreData").addEventListener("click", () => triggerImport("restore"));
+  $("#mergeData").addEventListener("click", () => triggerImport("merge"));
+}
+
+async function renderBetrieb(){
+  // Sofort anzeigen (unabhängig von der Datenbank), damit die Seite immer lädt
+  paintBetrieb(BETRIEBE.map(b => Object.assign({ custom: false }, b)));
+  // Eigene Betriebe nachladen und ergänzen, falls die Datenbank verfügbar ist
+  try {
+    const all = await getAllBetriebe();
+    if (app.screen === "betrieb" && all.length > BETRIEBE.length) paintBetrieb(all);
+  } catch (e){ /* Datenbank nicht verfügbar – eingebaute Betriebe bleiben sichtbar */ }
+}
+
+/* ---------- Fenster: Betrieb hinzufügen ---------- */
+const betriebModal = $("#betriebModal");
+const iconPick = $("#iconPick");
+let _selectedIcon = "🏢";
+function setBetriebIcon(ic){
+  _selectedIcon = ic;
+  iconPick.querySelectorAll(".icon-opt").forEach(b => b.classList.toggle("sel", b.dataset.ic === ic));
+}
+function openBetriebModal(){
+  $("#betrName").value = "";
+  $("#betrBeschr").value = "";
+  $("#betrName").classList.remove("err");
+  $("#eBetrName").classList.remove("show");
+  $("#eBetrDup").classList.remove("show");
+  setBetriebIcon("🏢");
+  betriebModal.hidden = false;
+  document.body.style.overflow = "hidden";
+  setTimeout(() => { try { $("#betrName").focus(); } catch(e){} }, 60);
+}
+function closeBetriebModal(){
+  betriebModal.hidden = true;
+  document.body.style.overflow = "";
+}
+async function saveBetrieb(){
+  const name = $("#betrName").value.trim();
+  const beschreibung = $("#betrBeschr").value.trim();
+  $("#betrName").classList.toggle("err", !name);
+  $("#eBetrName").classList.toggle("show", !name);
+  $("#eBetrDup").classList.remove("show");
+  if (!name) return;
+
+  let all = [];
+  try { all = await getAllBetriebe(); } catch(e){ all = []; }
+  if (all.some(b => b.name.trim().toLowerCase() === name.toLowerCase())){
+    $("#betrName").classList.add("err");
+    $("#eBetrDup").classList.add("show");
+    return;
+  }
+  const obj = { name, beschreibung, icon: _selectedIcon || "🏢", erstelltAm: new Date().toISOString() };
+  try { await dbAddBetrieb(obj); }
+  catch (err){ alert("Der Betrieb konnte nicht gespeichert werden: " + (err && err.message ? err.message : err)); return; }
+  closeBetriebModal();
+  renderBetrieb();
+}
+iconPick.querySelectorAll(".icon-opt").forEach(b => {
+  b.addEventListener("click", () => setBetriebIcon(b.dataset.ic));
+});
+$("#betriebClose").addEventListener("click", closeBetriebModal);
+$("#betrCancel").addEventListener("click", closeBetriebModal);
+$("#betrSave").addEventListener("click", saveBetrieb);
+betriebModal.addEventListener("click", (e) => { if (e.target === betriebModal) closeBetriebModal(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !betriebModal.hidden) closeBetriebModal(); });
+
+/* ---------- Fenster: Alle Reparaturen (alle Betriebe) ---------- */
+const allRepModal = $("#allRepModal");
+function closeAllRepTable(){
+  allRepModal.hidden = true;
+  document.body.style.overflow = "";
+}
+async function openAllRepTable(){
+  allRepModal.hidden = false;
+  document.body.style.overflow = "hidden";
+  const sub = $("#allRepSub");
+  const body = $("#allRepBody");
+  sub.textContent = "";
+  body.innerHTML = `<p class="rep-table-empty">Lädt …</p>`;
+
+  let geraete = [];
+  try { geraete = await dbAllGeraete(); }
+  catch (err){ body.innerHTML = `<p class="rep-table-empty">Die Daten konnten nicht geladen werden.</p>`; return; }
+
+  // Eine Zeile je Gerät (nur Geräte mit mindestens einer Reparatur), Reparaturen chronologisch
+  const zeilen = geraete
+    .filter(g => Array.isArray(g.reparaturen) && g.reparaturen.length)
+    .map(g => ({
+      betrieb: g.betrieb,
+      name: g.name,
+      reps: g.reparaturen.slice().sort((a,b) =>
+        (a.datum||"").localeCompare(b.datum||"") ||
+        (a.erstelltAm||"").localeCompare(b.erstelltAm||"")),
+    }))
+    .sort((a,b) =>
+      norm(a.betrieb).localeCompare(norm(b.betrieb)) ||
+      norm(a.name).localeCompare(norm(b.name)));
+
+  const maxReps = zeilen.reduce((m,z) => Math.max(m, z.reps.length), 0);
+  const gesamtReps = zeilen.reduce((s,z) => s + z.reps.length, 0);
+
+  sub.textContent = `${gesamtReps} ${gesamtReps === 1 ? "Reparatur" : "Reparaturen"} · ${zeilen.length} ${zeilen.length === 1 ? "Gerät" : "Geräte"}`;
+  if (!zeilen.length){
+    body.innerHTML = `<p class="rep-table-empty">Es wurden noch keine Reparaturen erfasst.</p>`;
+    return;
+  }
+
+  const repHeader = [];
+  for (let i = 0; i < maxReps; i++) repHeader.push(`<th class="c-rep">${i + 1}. Reparatur</th>`);
+
+  const repCell = (r) => r
+    ? `<td class="c-rep"><span class="rd">${esc(fmtRepDate(r.datum))}</span>${esc(r.beschreibung)}</td>`
+    : `<td class="c-rep c-empty">–</td>`;
+
+  body.innerHTML = `
+    <div class="rep-table-wrap">
+      <table class="rep-matrix">
+        <thead>
+          <tr>
+            <th class="c-betrieb">Betrieb</th>
+            <th class="c-geraet">Gerät</th>
+            ${repHeader.join("")}
+          </tr>
+        </thead>
+        <tbody>
+          ${zeilen.map(z => `
+            <tr>
+              <td class="c-betrieb">${esc(z.betrieb)}</td>
+              <td class="c-geraet">${esc(z.name)}</td>
+              ${Array.from({ length: maxReps }, (_, i) => repCell(z.reps[i])).join("")}
+            </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>`;
+}
+$("#allRepClose").addEventListener("click", closeAllRepTable);
+allRepModal.addEventListener("click", (e) => { if (e.target === allRepModal) closeAllRepTable(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !allRepModal.hidden) closeAllRepTable(); });
+
+/* ---------- Alle Daten herunterladen (Backup) ---------- */
+async function exportData(){
+  let geraete = [], betriebe = [];
+  try { geraete = await dbAllGeraete(); } catch (e){ geraete = []; }
+  try { betriebe = await dbAllBetriebe(); } catch (e){ betriebe = []; }
+
+  if (!geraete.length && !betriebe.length){
+    alert("Es sind noch keine Daten zum Sichern vorhanden.");
+    return;
+  }
+  const backup = {
+    app: "Geräteverwaltung",
+    formatVersion: 1,
+    exportiertAm: new Date().toISOString(),
+    anzahlGeraete: geraete.length,
+    eigeneBetriebe: betriebe,   // selbst angelegte Betriebe
+    geraete: geraete,           // inkl. Fotos, Dokumente und Reparaturen
+  };
+  try {
+    const json = JSON.stringify(backup, null, 2);
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `geraeteverwaltung-backup-${todayISO()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (err){
+    alert("Die Daten konnten nicht heruntergeladen werden: " + (err && err.message ? err.message : err));
+  }
+}
+
+/* ---------- Daten importieren: Wiederherstellen & Ergänzen ---------- */
+let _importMode = null;
+function triggerImport(mode){
+  _importMode = mode;
+  const inp = $("#importFile");
+  inp.value = "";
+  inp.click();
+}
+const norm = (s) => String(s == null ? "" : s).trim().toLowerCase();
+const repKey = (r) => r && r.id != null ? ("id:" + r.id) : ("dk:" + norm(r && r.datum) + "|" + norm(r && r.beschreibung));
+
+function parseBackup(text){
+  let data;
+  try { data = JSON.parse(text); }
+  catch (e){ return { error: "Die Datei ist keine gültige Sicherungsdatei (kein lesbares JSON)." }; }
+  if (!data || typeof data !== "object" ||
+      (!Array.isArray(data.geraete) && !Array.isArray(data.eigeneBetriebe))){
+    return { error: "Die Datei sieht nicht wie eine Sicherung dieser App aus." };
+  }
+  return {
+    geraete: Array.isArray(data.geraete) ? data.geraete : [],
+    betriebe: Array.isArray(data.eigeneBetriebe) ? data.eigeneBetriebe : [],
+  };
+}
+
+$("#importFile").addEventListener("change", (e) => {
+  const f = e.target.files && e.target.files[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const parsed = parseBackup(String(reader.result || ""));
+    if (parsed.error){ alert(parsed.error); return; }
+    if (_importMode === "restore") restoreData(parsed);
+    else mergeData(parsed);
+  };
+  reader.onerror = () => alert("Die Datei konnte nicht gelesen werden.");
+  reader.readAsText(f);
+});
+
+async function restoreData(parsed){
+  const ok = confirm(
+    "Wiederherstellen ersetzt ALLE aktuell gespeicherten Geräte und eigenen Betriebe durch den Inhalt der Datei.\n\n" +
+    `Datei enthält: ${parsed.geraete.length} Gerät(e), ${parsed.betriebe.length} eigene(n) Betrieb(e).\n\nFortfahren?`
+  );
+  if (!ok) return;
+  try {
+    await dbClear(STORE);
+    await dbClear(STORE_BETRIEB);
+    for (const b of parsed.betriebe){
+      if (b && b.name) { try { await dbPutBetrieb(b); } catch(e){} }
+    }
+    for (const g of parsed.geraete){
+      if (!g) continue;
+      if (!Array.isArray(g.reparaturen)) g.reparaturen = [];
+      try { await dbPut(g); } catch(e){}
+    }
+    alert(`Wiederhergestellt: ${parsed.geraete.length} Gerät(e) und ${parsed.betriebe.length} eigene(r) Betrieb(e).`);
+    renderBetrieb();
+  } catch (err){
+    alert("Wiederherstellen fehlgeschlagen: " + (err && err.message ? err.message : err));
+  }
+}
+
+async function mergeData(parsed){
+  let localGeraete = [], localBetriebe = [];
+  try { localGeraete = await dbAllGeraete(); } catch(e){ localGeraete = []; }
+  try { localBetriebe = await dbAllBetriebe(); } catch(e){ localBetriebe = []; }
+
+  // Vorhandene Betriebsnamen (eingebaut + eigene)
+  const betriebNamen = new Set(
+    BETRIEBE.map(b => norm(b.name)).concat(localBetriebe.map(b => norm(b.name)))
+  );
+  // Vorhandene Geräte nach Betrieb + Name
+  const devMap = new Map();
+  localGeraete.forEach(g => devMap.set(norm(g.betrieb) + "||" + norm(g.name), g));
+
+  let neueBetriebe = 0, neueGeraete = 0, neueReparaturen = 0;
+
+  // 1) Neue eigene Betriebe ergänzen
+  for (const b of parsed.betriebe){
+    if (!b || !b.name) continue;
+    if (!betriebNamen.has(norm(b.name))){
+      try { await dbAddBetrieb(b); neueBetriebe++; betriebNamen.add(norm(b.name)); } catch(e){}
+    }
+  }
+
+  // 2) Geräte abgleichen
+  for (const g of parsed.geraete){
+    if (!g || !g.name) continue;
+    const key = norm(g.betrieb) + "||" + norm(g.name);
+    const local = devMap.get(key);
+    if (!local){
+      // neues Gerät -> mit frischer ID hinzufügen
+      const copy = Object.assign({}, g);
+      delete copy.id;
+      if (!Array.isArray(copy.reparaturen)) copy.reparaturen = [];
+      try { const newId = await dbAdd(copy); copy.id = newId; neueGeraete++; devMap.set(key, copy); } catch(e){}
+    } else {
+      // vorhandenes Gerät -> nur fehlende Reparaturen ergänzen
+      const vorhanden = new Set((local.reparaturen || []).map(repKey));
+      const fehlende = (g.reparaturen || []).filter(r => !vorhanden.has(repKey(r)));
+      if (fehlende.length){
+        local.reparaturen = (local.reparaturen || []).concat(fehlende);
+        try { await dbPut(local); neueReparaturen += fehlende.length; } catch(e){}
+      }
+    }
+  }
+
+  if (!neueBetriebe && !neueGeraete && !neueReparaturen){
+    alert("Es wurden keine neuen Daten gefunden – alles ist bereits vorhanden.");
+  } else {
+    alert(
+      "Daten ergänzt:\n" +
+      `• ${neueGeraete} neue(s) Gerät(e)\n` +
+      `• ${neueReparaturen} neue Reparatur(en)\n` +
+      `• ${neueBetriebe} neue(r) Betrieb(e)`
+    );
+  }
+  renderBetrieb();
+}
+
+/* ---------- Screen: Modus ---------- */
+function renderModus(){
+  main.innerHTML = `
+    <div class="lead">
+      <h2>Was möchtest du tun?</h2>
+      <p>Aktiver Betrieb: <strong>${esc(app.betrieb)}</strong></p>
+    </div>
+    <div class="stack">
+      <button class="choice" id="mErfassen">
+        <span class="ic">➕</span>
+        <span class="tx"><b>Gerät erfassen</b><span>Neues Gerät mit Fotos aufnehmen</span></span>
+        <span class="arrow">›</span>
+      </button>
+      <button class="choice" id="mBearbeiten">
+        <span class="ic">🗂️</span>
+        <span class="tx"><b>Geräte bearbeiten</b><span>Erfasste Geräte ansehen und ändern</span></span>
+        <span class="arrow">›</span>
+      </button>
+    </div>`;
+  $("#mErfassen").addEventListener("click", () => {
+    app.entwurf = leererEntwurf(); app.step = 0; go("erfassen");
+  });
+  $("#mBearbeiten").addEventListener("click", () => { app.suche = ""; go("liste"); });
+}
+
+/* ---------- Screen: Erfassen (Assistent) ---------- */
+function renderErfassen(){
+  const d = app.entwurf;
+  const dots = [0,1,2,3].map(i =>
+    `<i class="${i < app.step ? "done" : (i === app.step ? "on" : "")}"></i>`).join("");
+
+  let body = "";
+  if (app.step === 0){
+    body = `
+      <div class="lead"><h2>Angaben zum Gerät</h2><p>Schritt 1 von 4</p></div>
+      <div class="field">
+        <label for="fName">Gerätename <span class="hint">— z. B. „Kühlschrank Küche“</span></label>
+        <input type="text" id="fName" value="${esc(d.name)}" autocomplete="off" placeholder="Gerätename eingeben">
+        <p class="errmsg" id="eName">Bitte einen Gerätenamen eingeben.</p>
+      </div>
+      <div class="field">
+        <label for="fOrt">Geräteort <span class="hint">— wo es im Betrieb steht</span></label>
+        <input type="text" id="fOrt" value="${esc(d.ort)}" autocomplete="off" placeholder="z. B. Küche, Lager, Theke">
+        <p class="errmsg" id="eOrt">Bitte einen Geräteort eingeben.</p>
+      </div>
+      <div class="actions">
+        <button class="btn btn-ghost" id="bBack">Zurück</button>
+        <button class="btn btn-primary" id="bNext">Weiter</button>
+      </div>`;
+  } else if (app.step === 1){
+    body = photoStepMarkup({
+      titel:"Foto vom Gerät", schritt:"Schritt 2 von 4",
+      frage:"Mach ein Foto vom Gerät.",
+      data:d.fotoGeraet, fehlt:d.fotoGeraetFehlt,
+      idPrefix:"g", missLabel:"Foto vom Gerät noch nicht vorhanden",
+    });
+  } else if (app.step === 2){
+    body = photoStepMarkup({
+      titel:"Foto vom Typenschild", schritt:"Schritt 3 von 4",
+      frage:"Mach ein Foto vom Typenschild des Geräts.",
+      data:d.fotoTypenschild, fehlt:d.fotoTypenschildFehlt,
+      idPrefix:"t", missLabel:"Foto vom Typenschild noch nicht vorhanden",
+    });
+  } else {
+    body = `
+      <div class="lead"><h2>Prüfen &amp; speichern</h2><p>Schritt 4 von 4 · ${esc(app.betrieb)}</p></div>
+      <div class="review">
+        <div class="row"><div class="k">Gerätename</div><div class="v">${esc(d.name)}</div></div>
+        <div class="row"><div class="k">Geräteort</div><div class="v">${esc(d.ort)}</div></div>
+        <div class="row" style="flex-direction:column;gap:10px">
+          <div class="k">Fotos</div>
+          <div class="thumbs">
+            <figure>
+              ${d.fotoGeraet ? `<img src="${d.fotoGeraet}" alt="Foto vom Gerät">`
+                : `<div class="missing">Gerätefoto<br>noch nicht vorhanden</div>`}
+              <figcaption>Gerät</figcaption>
+            </figure>
+            <figure>
+              ${d.fotoTypenschild ? `<img src="${d.fotoTypenschild}" alt="Foto vom Typenschild">`
+                : `<div class="missing">Typenschild<br>noch nicht vorhanden</div>`}
+              <figcaption>Typenschild</figcaption>
+            </figure>
+          </div>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-ghost" id="bBack">Zurück</button>
+        <button class="btn btn-primary" id="bSave">Speichern</button>
+      </div>`;
+  }
+
+  main.innerHTML = `<div class="progress">${dots}</div>${body}`;
+  wireErfassen();
+}
+
+function photoStepMarkup(o){
+  const has = !!o.data;
+  return `
+    <div class="lead"><h2>${esc(o.titel)}</h2><p>${esc(o.schritt)}</p></div>
+    <div class="field">
+      <label>${esc(o.frage)}</label>
+      <div class="photo ${has ? "has" : ""} ${o.fehlt ? "off" : ""}" id="photoBox">
+        ${has ? `
+          <img class="preview" src="${o.data}" alt="Aufgenommenes Foto">
+          <div class="ph-bar">
+            <span>Foto aufgenommen</span>
+            <div style="display:flex;gap:8px">
+              <button class="btn-mini" id="bRetake">Neu aufnehmen</button>
+              <button class="btn-mini danger" id="bRemove">Entfernen</button>
+            </div>
+          </div>`
+        : `
+          <div class="ph-empty">
+            <span class="ico">📷</span>
+            <b>${o.fehlt ? "Wird später nachgereicht" : "Noch kein Foto"}</b>
+            <span>${o.fehlt ? "Du kannst es später in der Bearbeitung ergänzen." : "Kamera öffnen oder Datei wählen"}</span>
+            <div class="ph-actions">
+              <button class="btn-mini" id="bCapture" ${o.fehlt ? "disabled" : ""}>📷 Foto aufnehmen</button>
+            </div>
+          </div>`}
+      </div>
+      <input type="file" id="fileInput" accept="image/*" capture="environment" hidden>
+      <label class="nophoto" for="missChk">
+        <input type="checkbox" id="missChk" ${o.fehlt ? "checked" : ""}>
+        <span class="lbl"><b>${esc(o.missLabel)}</b><span>Ankreuzen, falls das Foto gerade nicht möglich ist.</span></span>
+      </label>
+      <p class="errmsg" id="ePhoto">Bitte ein Foto aufnehmen oder „noch nicht vorhanden“ ankreuzen.</p>
+    </div>
+    <div class="actions">
+      <button class="btn btn-ghost" id="bBack">Zurück</button>
+      <button class="btn btn-primary" id="bNext">Weiter</button>
+    </div>`;
+}
+
+function wireErfassen(){
+  const d = app.entwurf;
+  const bBack = $("#bBack");
+  if (bBack) bBack.addEventListener("click", back);
+
+  if (app.step === 0){
+    $("#bNext").addEventListener("click", () => {
+      const name = $("#fName").value.trim();
+      const ort  = $("#fOrt").value.trim();
+      let ok = true;
+      $("#fName").classList.toggle("err", !name);
+      $("#eName").classList.toggle("show", !name);
+      $("#fOrt").classList.toggle("err", !ort);
+      $("#eOrt").classList.toggle("show", !ort);
+      if (!name || !ort) ok = false;
+      if (!ok) return;
+      d.name = name; d.ort = ort;
+      app.step = 1; render(); window.scrollTo(0,0);
+    });
+  } else if (app.step === 1 || app.step === 2){
+    wirePhotoStep(app.step === 1 ? "geraet" : "typenschild");
+  } else {
+    $("#bSave").addEventListener("click", speichern);
+  }
+}
+
+function wirePhotoStep(welches){
+  const d = app.entwurf;
+  const isG = (welches === "geraet");
+  const fileInput = $("#fileInput");
+  const missChk = $("#missChk");
+  const ePhoto = $("#ePhoto");
+
+  const getData = () => isG ? d.fotoGeraet : d.fotoTypenschild;
+  const setData = (v) => { if (isG) d.fotoGeraet = v; else d.fotoTypenschild = v; };
+  const setFehlt = (v) => { if (isG) d.fotoGeraetFehlt = v; else d.fotoTypenschildFehlt = v; };
+
+  const trigger = () => fileInput && fileInput.click();
+  const bCapture = $("#bCapture"); if (bCapture) bCapture.addEventListener("click", trigger);
+  const bRetake = $("#bRetake");   if (bRetake) bRetake.addEventListener("click", trigger);
+  const bRemove = $("#bRemove");
+  if (bRemove) bRemove.addEventListener("click", () => { setData(null); render(); });
+
+  if (fileInput){
+    fileInput.addEventListener("change", async (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return;
+      try {
+        const dataUrl = await downscaleImage(f);
+        setData(dataUrl); setFehlt(false);
+        render();
+      } catch (err) {
+        ePhoto.textContent = "Das Foto konnte nicht verarbeitet werden. Bitte erneut versuchen.";
+        ePhoto.classList.add("show");
+      }
+    });
+  }
+
+  if (missChk){
+    missChk.addEventListener("change", () => {
+      setFehlt(missChk.checked);
+      if (missChk.checked) setData(null);
+      render();
+    });
+  }
+
+  $("#bNext").addEventListener("click", () => {
+    const hasPhoto = !!getData();
+    const fehlt = isG ? d.fotoGeraetFehlt : d.fotoTypenschildFehlt;
+    if (!hasPhoto && !fehlt){
+      ePhoto.textContent = "Bitte ein Foto aufnehmen oder „noch nicht vorhanden“ ankreuzen.";
+      ePhoto.classList.add("show");
+      return;
+    }
+    app.step++; render(); window.scrollTo(0,0);
+  });
+}
+
+async function speichern(){
+  const d = app.entwurf;
+  const record = {
+    betrieb: app.betrieb,
+    name: d.name,
+    ort: d.ort,
+    fotoGeraet: d.fotoGeraet || null,
+    fotoGeraetFehlt: !!d.fotoGeraetFehlt,
+    fotoTypenschild: d.fotoTypenschild || null,
+    fotoTypenschildFehlt: !!d.fotoTypenschildFehlt,
+    erstelltAm: new Date().toISOString(),
+    geaendertAm: new Date().toISOString(),
+  };
+  try {
+    const id = await dbAdd(record);
+    app.letzteAsset = assetId(id);
+    app.entwurf = null;
+    go("erfolg");
+  } catch (err){
+    alert("Speichern fehlgeschlagen: " + (err && err.message ? err.message : err));
+  }
+}
+
+/* ---------- Screen: Erfolg ---------- */
+function renderErfolg(){
+  main.innerHTML = `
+    <div class="done-card">
+      <div class="seal">✓</div>
+      <h2>Gerät gespeichert</h2>
+      <p>Das Gerät wurde in der Datenbank angelegt.</p>
+      <div class="asset">${esc(app.letzteAsset || "")}</div>
+    </div>
+    <div class="stack" style="margin-top:24px">
+      <button class="choice" id="bAgain">
+        <span class="ic">➕</span>
+        <span class="tx"><b>Weiteres Gerät erfassen</b><span>${esc(app.betrieb)}</span></span>
+        <span class="arrow">›</span>
+      </button>
+      <button class="choice" id="bToList">
+        <span class="ic">🗂️</span>
+        <span class="tx"><b>Zur Geräteübersicht</b><span>Erfasste Geräte ansehen</span></span>
+        <span class="arrow">›</span>
+      </button>
+      <button class="choice" id="bSwitch">
+        <span class="ic">🏠</span>
+        <span class="tx"><b>Betrieb wechseln</b><span>Anderen Standort wählen</span></span>
+        <span class="arrow">›</span>
+      </button>
+    </div>`;
+  $("#bAgain").addEventListener("click", () => { app.entwurf = leererEntwurf(); app.step = 0; go("erfassen"); });
+  $("#bToList").addEventListener("click", () => { app.suche = ""; go("liste"); });
+  $("#bSwitch").addEventListener("click", () => { app.betrieb = null; go("betrieb"); });
+}
+
+/* ---------- Screen: Liste (Bearbeitung) ---------- */
+let _listItems = [];
+
+async function renderListe(){
+  main.innerHTML = `<div class="empty">Lädt …</div>`;
+  try { _listItems = await dbByBetrieb(app.betrieb); }
+  catch (err){ main.innerHTML = `<div class="empty"><b>Fehler</b>Die Geräte konnten nicht geladen werden.</div>`; return; }
+
+  if (_listItems.length === 0){
+    main.innerHTML = `
+      <div class="empty">
+        <span class="ico">🗂️</span>
+        <b>Noch keine Geräte</b>
+        Für ${esc(app.betrieb)} ist noch kein Gerät erfasst.
+        <div class="actions" style="margin-top:18px">
+          <button class="btn btn-primary" id="bNew">Erstes Gerät erfassen</button>
+        </div>
+      </div>`;
+    $("#bNew").addEventListener("click", () => { app.entwurf = leererEntwurf(); app.step = 0; go("erfassen"); });
+    return;
+  }
+
+  main.innerHTML = `
+    <div class="filterbar">
+      <span class="mag">🔎</span>
+      <input type="text" id="suche" placeholder="Geräte durchsuchen …" value="${esc(app.suche)}" autocomplete="off">
+    </div>
+    <div class="listhead">
+      <span style="font-weight:600">${esc(app.betrieb)}</span>
+      <span class="count" id="listCount"></span>
+    </div>
+    <div id="devList"></div>
+    <div class="actions" style="margin-top:18px">
+      <button class="btn btn-primary" id="bNew">➕ Neues Gerät erfassen</button>
+    </div>`;
+
+  const suche = $("#suche");
+  suche.addEventListener("input", () => { app.suche = suche.value; updateDevList(); });
+  $("#bNew").addEventListener("click", () => { app.entwurf = leererEntwurf(); app.step = 0; go("erfassen"); });
+
+  updateDevList();
+}
+
+function updateDevList(){
+  const q = app.suche.trim().toLowerCase();
+  const gefiltert = q
+    ? _listItems.filter(it => (it.name + " " + it.ort).toLowerCase().includes(q))
+    : _listItems;
+
+  const count = $("#listCount");
+  if (count) count.textContent = `${gefiltert.length} / ${_listItems.length} Geräte`;
+
+  const list = $("#devList");
+  if (!list) return;
+  list.innerHTML = gefiltert.length
+    ? gefiltert.map(it => deviceRow(it)).join("")
+    : `<div class="empty">Keine Treffer für „${esc(app.suche)}“.</div>`;
+  list.querySelectorAll(".device").forEach(el => {
+    el.addEventListener("click", () => { app.detailId = +el.dataset.id; go("detail"); });
+  });
+}
+
+function deviceRow(it){
+  const thumb = it.fotoGeraet
+    ? `<img src="${it.fotoGeraet}" alt="">`
+    : `📦`;
+  const badges = [];
+  badges.push(it.fotoGeraet ? `<span class="badge ok">Gerätefoto ✓</span>` : `<span class="badge miss">Gerätefoto fehlt</span>`);
+  badges.push(it.fotoTypenschild ? `<span class="badge ok">Typenschild ✓</span>` : `<span class="badge miss">Typenschild fehlt</span>`);
+  return `
+    <button class="device" data-id="${it.id}">
+      <span class="pic">${thumb}</span>
+      <span class="meta">
+        <b>${esc(it.name)}</b>
+        <span class="loc">📍 ${esc(it.ort)} · ${esc(assetId(it.id))}</span>
+        <span class="badges">${badges.join("")}</span>
+      </span>
+      <span class="chev">›</span>
+    </button>`;
+}
+
+/* ---------- Screen: Detail (bearbeiten) ---------- */
+async function renderDetail(){
+  main.innerHTML = `<div class="empty">Lädt …</div>`;
+  let it;
+  try { it = await dbGet(app.detailId); }
+  catch (err){ it = null; }
+  if (!it){ main.innerHTML = `<div class="empty"><b>Nicht gefunden</b>Dieses Gerät existiert nicht mehr.</div>`; return; }
+
+  // Arbeitskopie im Entwurf, damit Foto-Logik wiederverwendbar ist
+  const d = {
+    name: it.name, ort: it.ort,
+    fotoGeraet: it.fotoGeraet, fotoGeraetFehlt: it.fotoGeraetFehlt,
+    fotoTypenschild: it.fotoTypenschild, fotoTypenschildFehlt: it.fotoTypenschildFehlt,
+    anleitung: it.anleitung || null,
+    explosionszeichnung: it.explosionszeichnung || null,
+    reparaturen: (it.reparaturen || []).map(r => Object.assign({}, r)),
+  };
+  app.entwurf = d;
+
+  main.innerHTML = `
+    <div class="lead">
+      <h2>${esc(it.name)}</h2>
+      <p>${esc(assetId(it.id))} · erfasst ${esc(fmtDatum(it.erstelltAm))}</p>
+    </div>
+    <div class="field">
+      <label for="fName">Gerätename</label>
+      <input type="text" id="fName" value="${esc(d.name)}" autocomplete="off">
+      <p class="errmsg" id="eName">Bitte einen Gerätenamen eingeben.</p>
+    </div>
+    <div class="field">
+      <label for="fOrt">Geräteort</label>
+      <input type="text" id="fOrt" value="${esc(d.ort)}" autocomplete="off">
+      <p class="errmsg" id="eOrt">Bitte einen Geräteort eingeben.</p>
+    </div>
+
+    <div class="field">
+      <label>Foto vom Gerät</label>
+      <div id="slotGeraet"></div>
+    </div>
+    <div class="field">
+      <label>Foto vom Typenschild</label>
+      <div id="slotTypenschild"></div>
+    </div>
+
+    <div class="field">
+      <label>Anleitung <span class="hint">— optional, PDF oder Bild</span></label>
+      <div id="slotAnleitung"></div>
+    </div>
+    <div class="field">
+      <label>Explosionszeichnung <span class="hint">— optional, PDF oder Bild</span></label>
+      <div id="slotExplosion"></div>
+    </div>
+
+    <div style="margin:22px 0 18px;padding-top:18px;border-top:1px solid var(--line)">
+      <div id="repairSection"></div>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-ghost danger-btn" id="bDelete" style="color:#c0392b;border-color:#e9c4be;min-width:auto">Löschen</button>
+      <button class="btn btn-primary" id="bSaveEdit">Änderungen speichern</button>
+    </div>`;
+
+  renderDetailPhoto("geraet");
+  renderDetailPhoto("typenschild");
+  renderDocField("anleitung");
+  renderDocField("explosionszeichnung");
+  renderReparaturen(it.id);
+
+  $("#bDelete").addEventListener("click", async () => {
+    if (!confirm("Dieses Gerät wirklich löschen? Das kann nicht rückgängig gemacht werden.")) return;
+    try { await dbDelete(it.id); app.entwurf = null; go("liste"); }
+    catch (err){ alert("Löschen fehlgeschlagen: " + (err && err.message ? err.message : err)); }
+  });
+
+  $("#bSaveEdit").addEventListener("click", async () => {
+    const name = $("#fName").value.trim();
+    const ort  = $("#fOrt").value.trim();
+    $("#fName").classList.toggle("err", !name); $("#eName").classList.toggle("show", !name);
+    $("#fOrt").classList.toggle("err", !ort);   $("#eOrt").classList.toggle("show", !ort);
+    if (!name || !ort) return;
+    const updated = Object.assign({}, it, {
+      name, ort,
+      fotoGeraet: d.fotoGeraet || null, fotoGeraetFehlt: !!d.fotoGeraetFehlt,
+      fotoTypenschild: d.fotoTypenschild || null, fotoTypenschildFehlt: !!d.fotoTypenschildFehlt,
+      anleitung: d.anleitung || null,
+      explosionszeichnung: d.explosionszeichnung || null,
+      reparaturen: Array.isArray(d.reparaturen) ? d.reparaturen : [],
+      geaendertAm: new Date().toISOString(),
+    });
+    try { await dbPut(updated); app.entwurf = null; go("liste"); }
+    catch (err){ alert("Speichern fehlgeschlagen: " + (err && err.message ? err.message : err)); }
+  });
+}
+
+function renderDetailPhoto(welches){
+  const d = app.entwurf;
+  const isG = (welches === "geraet");
+  const slot = isG ? $("#slotGeraet") : $("#slotTypenschild");
+  const data = isG ? d.fotoGeraet : d.fotoTypenschild;
+  const fehlt = isG ? d.fotoGeraetFehlt : d.fotoTypenschildFehlt;
+  const has = !!data;
+  const missLabel = isG ? "Foto vom Gerät noch nicht vorhanden" : "Foto vom Typenschild noch nicht vorhanden";
+  const captionText = isG ? "Foto vom Gerät" : "Foto vom Typenschild";
+
+  slot.innerHTML = `
+    <div class="photo ${has ? "has" : ""} ${fehlt ? "off" : ""}">
+      ${has ? `
+        <img class="preview zoomable" src="${data}" alt="${esc(captionText)}">
+        <div class="ph-bar">
+          <span>🔍 Tippen zum Vergrößern</span>
+          <div style="display:flex;gap:8px">
+            <button class="btn-mini" data-act="retake">Neu aufnehmen</button>
+            <button class="btn-mini danger" data-act="remove">Entfernen</button>
+          </div>
+        </div>`
+      : `
+        <div class="ph-empty">
+          <span class="ico">📷</span>
+          <b>${fehlt ? "Wird später nachgereicht" : "Kein Foto"}</b>
+          <div class="ph-actions">
+            <button class="btn-mini" data-act="capture" ${fehlt ? "disabled" : ""}>📷 Foto aufnehmen</button>
+          </div>
+        </div>`}
+    </div>
+    <input type="file" accept="image/*" capture="environment" hidden data-act="file">
+    <label class="nophoto">
+      <input type="checkbox" data-act="miss" ${fehlt ? "checked" : ""}>
+      <span class="lbl"><b>${esc(missLabel)}</b><span>Ankreuzen, falls das Foto gerade nicht möglich ist.</span></span>
+    </label>`;
+
+  const setData = (v) => { if (isG) d.fotoGeraet = v; else d.fotoTypenschild = v; };
+  const setFehlt = (v) => { if (isG) d.fotoGeraetFehlt = v; else d.fotoTypenschildFehlt = v; };
+  const fileInput = slot.querySelector('[data-act="file"]');
+  const trigger = () => fileInput.click();
+
+  const cap = slot.querySelector('[data-act="capture"]'); if (cap) cap.addEventListener("click", trigger);
+  const ret = slot.querySelector('[data-act="retake"]');  if (ret) ret.addEventListener("click", trigger);
+  const rem = slot.querySelector('[data-act="remove"]');  if (rem) rem.addEventListener("click", () => { setData(null); renderDetailPhoto(welches); });
+  const zoom = slot.querySelector(".zoomable"); if (zoom) zoom.addEventListener("click", () => openLightbox(data, captionText));
+
+  fileInput.addEventListener("change", async (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    try { const url = await downscaleImage(f); setData(url); setFehlt(false); renderDetailPhoto(welches); }
+    catch (err){ alert("Das Foto konnte nicht verarbeitet werden."); }
+  });
+  const miss = slot.querySelector('[data-act="miss"]');
+  miss.addEventListener("change", () => {
+    setFehlt(miss.checked);
+    if (miss.checked) setData(null);
+    renderDetailPhoto(welches);
+  });
+}
+
+function renderDocField(key){
+  const d = app.entwurf;
+  const slot = (key === "anleitung") ? $("#slotAnleitung") : $("#slotExplosion");
+  if (!slot) return;
+  const doc = d[key];
+  const label = (key === "anleitung") ? "Anleitung" : "Explosionszeichnung";
+
+  if (!doc){
+    slot.innerHTML = `
+      <button class="docupload" data-act="upload">⬆️ Datei wählen (PDF oder Bild)</button>
+      <input type="file" accept="application/pdf,image/*" hidden data-act="file">`;
+  } else {
+    const ic = isImage(doc) ? "🖼️" : "📄";
+    const typeLabel = isImage(doc) ? "Bild" : (doc.type === "application/pdf" ? "PDF" : "Datei");
+    slot.innerHTML = `
+      <div class="docbox">
+        <div class="docrow">
+          <span class="docic">${ic}</span>
+          <span class="docmeta"><b>${esc(doc.name || label)}</b><span>${typeLabel}${isImage(doc) ? " · Tippen zum Vergrößern" : ""}</span></span>
+        </div>
+        <div class="docactions">
+          <button class="btn-mini" data-act="open">${isImage(doc) ? "🔍 Ansehen" : "📄 Öffnen"}</button>
+          <button class="btn-mini" data-act="replace">Ersetzen</button>
+          <button class="btn-mini danger" data-act="remove">Entfernen</button>
+        </div>
+      </div>
+      <input type="file" accept="application/pdf,image/*" hidden data-act="file">`;
+  }
+
+  const fileInput = slot.querySelector('[data-act="file"]');
+  const trigger = () => fileInput.click();
+  const up = slot.querySelector('[data-act="upload"]'); if (up) up.addEventListener("click", trigger);
+  const rep = slot.querySelector('[data-act="replace"]'); if (rep) rep.addEventListener("click", trigger);
+  const open = slot.querySelector('[data-act="open"]'); if (open) open.addEventListener("click", () => openDocument(d[key]));
+  const rem = slot.querySelector('[data-act="remove"]'); if (rem) rem.addEventListener("click", () => { d[key] = null; renderDocField(key); });
+  const docrow = slot.querySelector(".docrow"); if (docrow && doc && isImage(doc)) docrow.addEventListener("click", () => openDocument(d[key]));
+
+  fileInput.addEventListener("change", async (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    try {
+      let data;
+      if (f.type && f.type.indexOf("image/") === 0) data = await downscaleImage(f, 2200, 0.85);
+      else data = await readFileAsDataURL(f);
+      d[key] = { name: f.name, type: f.type || "application/octet-stream", data };
+      renderDocField(key);
+    } catch (err) {
+      alert("Die Datei konnte nicht verarbeitet werden. Bitte erneut versuchen.");
+    }
+  });
+}
+
+/* ---------- Start ---------- */
+openDB().catch(() => {/* IndexedDB ggf. nicht verfügbar – App läuft trotzdem an */});
+render();
+</script>
+</body>
+</html>
