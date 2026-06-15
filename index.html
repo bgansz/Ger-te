@@ -1100,19 +1100,36 @@ async function exportData(){
     eigeneBetriebe: betriebe,   // selbst angelegte Betriebe
     geraete: geraete,           // inkl. Fotos, Dokumente und Reparaturen
   };
+  const json = JSON.stringify(backup, null, 2);
+  const dateiname = `geraeteverwaltung-backup-${todayISO()}.json`;
+
+  // 1) Bevorzugt: nativer Sichern-/Teilen-Dialog (iPhone: "In Dateien sichern" -> lokal auf dem Gerät)
   try {
-    const json = JSON.stringify(backup, null, 2);
+    if (typeof File !== "undefined" && navigator.canShare){
+      const datei = new File([json], dateiname, { type: "application/json" });
+      if (navigator.canShare({ files: [datei] })){
+        await navigator.share({ files: [datei], title: "Geräteverwaltung – Sicherung" });
+        return; // erfolgreich über den Sichern-Dialog gespeichert
+      }
+    }
+  } catch (err){
+    if (err && err.name === "AbortError") return; // Nutzer hat den Dialog abgebrochen
+    // anderer Fehler -> unten klassisch herunterladen
+  }
+
+  // 2) Fallback: klassischer Download (z. B. am Mac -> Ordner "Downloads")
+  try {
     const blob = new Blob([json], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `geraeteverwaltung-backup-${todayISO()}.json`;
+    a.download = dateiname;
     document.body.appendChild(a);
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 60000);
   } catch (err){
-    alert("Die Daten konnten nicht heruntergeladen werden: " + (err && err.message ? err.message : err));
+    alert("Die Daten konnten nicht gesichert werden: " + (err && err.message ? err.message : err));
   }
 }
 
